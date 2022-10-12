@@ -67,7 +67,7 @@ func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
 }
 
 func notifyHandlerFunc(a *api) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 
 		ctx, span := tracer.Start(r.Context(), "notification-received")
@@ -75,7 +75,12 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 
 		_, ctx, log := o11y.AddTraceIDToLoggerAndStoreInContext(span, a.log, ctx)
 
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to read body")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		defer r.Body.Close()
 
 		log.Info().Msg("attempting to process notification")
@@ -83,7 +88,7 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 		n := application.Notification{}
 		err = json.Unmarshal(body, &n)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to handle message")
+			log.Error().Err(err).Msg("failed to unmarshal notification")
 
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -93,7 +98,7 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 
 		err = a.app.NotificationReceived(ctx, n)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to handle message")
+			log.Error().Err(err).Msg("failed to handle notification")
 
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -102,5 +107,5 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
-	}
+	})
 }
