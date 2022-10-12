@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
+
+	"github.com/diwise/integration-cip-gbg-watermeter/internal/pkg/application"
 )
 
 var tracer = otel.Tracer("integration-cip-gbg-watermeter/api")
@@ -22,6 +25,7 @@ type API interface {
 type api struct {
 	log zerolog.Logger
 	r   chi.Router
+	app application.App
 }
 
 func (a *api) Start(port string) error {
@@ -30,16 +34,17 @@ func (a *api) Start(port string) error {
 	return http.ListenAndServe(":"+port, a.r)
 }
 
-func NewApi(logger zerolog.Logger, r chi.Router) API {
-	a := newAPI(logger, r)
+func NewApi(logger zerolog.Logger, r chi.Router, app application.App) API {
+	a := newAPI(logger, r, app)
 
 	return a
 }
 
-func newAPI(logger zerolog.Logger, r chi.Router) *api {
+func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
 	a := &api{
 		log: logger,
 		r:   r,
+		app: app,
 	}
 
 	r.Use(cors.New(cors.Options{
@@ -73,9 +78,29 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 		body, _ := io.ReadAll(r.Body)
 		defer r.Body.Close()
 
-		log.Info().Msg("attempting to process message")
+		log.Info().Msg("attempting to process notification")
 
-		w.Write(body)
-		w.WriteHeader(http.StatusOK)
+		n := application.Notification{}
+		err = json.Unmarshal(body, &n)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to handle message")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+
+			return
+		}
+
+		err = a.app.NotificationReceived(ctx, n)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to handle message")
+
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+
+			return
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
 	}
 }
