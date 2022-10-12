@@ -64,8 +64,10 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 	}
 
 	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf("INSERT INTO geodata_cip.waterConsumptionObserved (id, volume, unitCode, observedAt) VALUES ('%s', '%0.1f', '%s', '%s') ON CONFLICT DO NOTHING;", wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt)
-		_, err := tx.Exec(ctx, insert)
+		insert := fmt.Sprintf("INSERT INTO geodata_cip.waterConsumptionObserved (\"id\", \"volume\", \"unitCode\", \"observedAt\") VALUES ('%s', '%0.1f', '%s', '%s') ON CONFLICT DO NOTHING;", wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt)
+		log.Debug().Msgf("SQL: %s", insert)
+		ct, err := tx.Exec(ctx, insert)
+		log.Debug().Msgf("RowsAffected: %d", ct.RowsAffected())
 
 		return err
 	})
@@ -76,11 +78,11 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 /*
 CREATE TABLE geodata_cip.waterConsumptionObserved
 (
-	"id" string NOT NULL,
+	"id" text COLLATE pg_catalog."default" NOT NULL,
 	"volume" numeric,
 	"unitCode" text COLLATE pg_catalog."default",
 	"observedAt" timestamp,
 	"geom" geometry(Geometry,3007),
-	CONSTRAINT waterConsumptionObserved_pkey PRIMARY KEY (id, observedAt)
+	CONSTRAINT pkey PRIMARY KEY ("id", "observedAt")
 )
 */
