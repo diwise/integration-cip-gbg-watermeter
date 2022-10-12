@@ -16,7 +16,6 @@ import (
 const serviceName string = "integration-cip-gbg-watermeter"
 
 func main() {
-
 	serviceVersion := buildinfo.SourceVersion()
 	_, logger, cleanup := o11y.Init(context.Background(), serviceName, serviceVersion)
 	defer cleanup()

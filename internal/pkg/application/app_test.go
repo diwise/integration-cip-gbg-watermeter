@@ -15,7 +15,7 @@ func TestWaterConsumptionObserved(t *testing.T) {
 
 	storeFunc := func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error {
 		return nil
-  	}
+	}
 
 	err := handleWaterConsumptionObserved(context.Background(), createNotification().Entities[0], storeFunc)
 

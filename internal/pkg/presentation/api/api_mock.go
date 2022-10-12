@@ -13,19 +13,19 @@ var _ API = &APIMock{}
 
 // APIMock is a mock implementation of API.
 //
-// 	func TestSomethingThatUsesAPI(t *testing.T) {
+//	func TestSomethingThatUsesAPI(t *testing.T) {
 //
-// 		// make and configure a mocked API
-// 		mockedAPI := &APIMock{
-// 			StartFunc: func(port string) error {
-// 				panic("mock out the Start method")
-// 			},
-// 		}
+//		// make and configure a mocked API
+//		mockedAPI := &APIMock{
+//			StartFunc: func(port string) error {
+//				panic("mock out the Start method")
+//			},
+//		}
 //
-// 		// use mockedAPI in code that requires API
-// 		// and then make assertions.
+//		// use mockedAPI in code that requires API
+//		// and then make assertions.
 //
-// 	}
+//	}
 type APIMock struct {
 	// StartFunc mocks the Start method.
 	StartFunc func(port string) error
@@ -59,7 +59,8 @@ func (mock *APIMock) Start(port string) error {
 
 // StartCalls gets all the calls that were made to Start.
 // Check the length with:
-//     len(mockedAPI.StartCalls())
+//
+//	len(mockedAPI.StartCalls())
 func (mock *APIMock) StartCalls() []struct {
 	Port string
 } {

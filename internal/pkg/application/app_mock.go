@@ -14,19 +14,19 @@ var _ App = &AppMock{}
 
 // AppMock is a mock implementation of App.
 //
-// 	func TestSomethingThatUsesApp(t *testing.T) {
+//	func TestSomethingThatUsesApp(t *testing.T) {
 //
-// 		// make and configure a mocked App
-// 		mockedApp := &AppMock{
-// 			NotificationReceivedFunc: func(ctx context.Context, n Notification) error {
-// 				panic("mock out the NotificationReceived method")
-// 			},
-// 		}
+//		// make and configure a mocked App
+//		mockedApp := &AppMock{
+//			NotificationReceivedFunc: func(ctx context.Context, n Notification) error {
+//				panic("mock out the NotificationReceived method")
+//			},
+//		}
 //
-// 		// use mockedApp in code that requires App
-// 		// and then make assertions.
+//		// use mockedApp in code that requires App
+//		// and then make assertions.
 //
-// 	}
+//	}
 type AppMock struct {
 	// NotificationReceivedFunc mocks the NotificationReceived method.
 	NotificationReceivedFunc func(ctx context.Context, n Notification) error
@@ -64,7 +64,8 @@ func (mock *AppMock) NotificationReceived(ctx context.Context, n Notification) e
 
 // NotificationReceivedCalls gets all the calls that were made to NotificationReceived.
 // Check the length with:
-//     len(mockedApp.NotificationReceivedCalls())
+//
+//	len(mockedApp.NotificationReceivedCalls())
 func (mock *AppMock) NotificationReceivedCalls() []struct {
 	Ctx context.Context
 	N   Notification

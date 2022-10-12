@@ -63,7 +63,6 @@ func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
 }
 
 func registerHandlers(serviceName string, r chi.Router, log zerolog.Logger, a api) error {
-
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
