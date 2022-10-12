@@ -40,7 +40,11 @@ func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 
 	for _, e := range n.Entities {
 		entity := Entity{}
-		json.Unmarshal(e, &entity)
+		err := json.Unmarshal(e, &entity)
+		if err != nil {
+			log.Error().Err(err).Msg("unable to unmarshal entity")
+			return err
+		}
 
 		switch strings.ToLower(entity.Type) {
 		case "waterconsumptionobserved":
