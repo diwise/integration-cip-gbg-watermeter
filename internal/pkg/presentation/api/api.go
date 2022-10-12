@@ -18,6 +18,8 @@ import (
 
 var tracer = otel.Tracer("integration-cip-gbg-watermeter/api")
 
+//go:generate moq -rm -out api_mock.go . API
+
 type API interface {
 	Start(port string) error
 }
@@ -55,25 +57,36 @@ func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
 
 	serviceName := "integration-cip-gbg-watermeter"
 
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
-
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	})
-
-	r.Post("/v2/notify", notifyHandlerFunc(a))
+	registerHandlers(serviceName, r, logger, *a)
 
 	return a
 }
 
-func notifyHandlerFunc(a *api) http.HandlerFunc {
+func registerHandlers(serviceName string, r chi.Router, log zerolog.Logger, a api) error {
+
+	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	r.Route("/v2/notify", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Post("/", notifyHandlerFunc(a.app, a.log))
+		})
+	})
+
+	return nil
+}
+
+func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 
 		ctx, span := tracer.Start(r.Context(), "notification-received")
 		defer func() { tracing.RecordAnyErrorAndEndSpan(err, span) }()
 
-		_, ctx, log := o11y.AddTraceIDToLoggerAndStoreInContext(span, a.log, ctx)
+		_, ctx, log := o11y.AddTraceIDToLoggerAndStoreInContext(span, log, ctx)
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -96,7 +109,7 @@ func notifyHandlerFunc(a *api) http.HandlerFunc {
 			return
 		}
 
-		err = a.app.NotificationReceived(ctx, n)
+		err = a.NotificationReceived(ctx, n)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to handle notification")
 
