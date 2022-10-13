@@ -55,15 +55,13 @@ func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
 		Debug:            false,
 	}).Handler)
 
-	serviceName := "integration-cip-gbg-watermeter"
-
-	registerHandlers(serviceName, r, logger, *a)
+	registerHandlers(r, logger, *a)
 
 	return a
 }
 
-func registerHandlers(serviceName string, r chi.Router, log zerolog.Logger, a api) error {
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+func registerHandlers(r chi.Router, log zerolog.Logger, a api) error {
+	r.Use(otelchi.Middleware("integration-cip-gbg-watermeter", otelchi.WithChiRoutes(r)))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

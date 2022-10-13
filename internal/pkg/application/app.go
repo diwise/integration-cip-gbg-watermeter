@@ -33,16 +33,14 @@ func NewApp() App {
 	return &app{}
 }
 
-type NotificationHandler = func(ctx context.Context, n Notification) error
-
 func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 	log := logging.GetFromContext(ctx)
 
-	for _, e := range n.Entities {
+	for i, e := range n.Entities {
 		entity := Entity{}
 		err := json.Unmarshal(e, &entity)
 		if err != nil {
-			log.Error().Err(err).Msg("unable to unmarshal entity")
+			log.Error().Err(err).Msgf("unable to unmarshal entity [%d] in notification", i)
 			return err
 		}
 

@@ -41,7 +41,7 @@ func setupTest(t *testing.T) (*is.I, *httptest.Server, zerolog.Logger, api) {
 		},
 	}
 
-	registerHandlers("", r, log, api)
+	registerHandlers(r, log, api)
 
 	return is, ts, log, api
 }

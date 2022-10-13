@@ -60,14 +60,15 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 	wco := waterConsumptionObserved{}
 	err := json.Unmarshal(j, &wco)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal notification entity")
+		log.Error().Err(err).Msg("failed to unmarshal notification entity into waterConsumptionObserved")
 	}
 
 	err = store(ctx, log, func(tx pgx.Tx) error {
 		insert := fmt.Sprintf("INSERT INTO geodata_cip.waterConsumptionObserved (\"id\", \"volume\", \"unitCode\", \"observedAt\") VALUES ('%s', '%0.1f', '%s', '%s') ON CONFLICT DO NOTHING;", wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt)
-		log.Debug().Msgf("SQL: %s", insert)
-		ct, err := tx.Exec(ctx, insert)
-		log.Debug().Msgf("RowsAffected: %d", ct.RowsAffected())
+		_, err := tx.Exec(ctx, insert)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to insert or update data in database")
+		}
 
 		return err
 	})
