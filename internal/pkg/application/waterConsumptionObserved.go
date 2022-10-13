@@ -76,6 +76,8 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 }
 
 /*
+-- TABLE
+
 CREATE TABLE geodata_cip.waterConsumptionObserved
 (
 	"id" text COLLATE pg_catalog."default" NOT NULL,
@@ -85,4 +87,25 @@ CREATE TABLE geodata_cip.waterConsumptionObserved
 	"geom" geometry(Geometry,3007),
 	CONSTRAINT pkey PRIMARY KEY ("id", "observedAt")
 )
+*/
+
+/*
+-- VIEW for latest measurement for each id
+
+CREATE VIEW geodata_cip."latestWaterConsumptionObserved"
+ AS
+select distinct on (id) id, volume, "observedAt"
+from geodata_cip.waterconsumptionobserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_cip."latestWaterConsumptionObserved"
+    OWNER TO postgres;
+*/
+
+/*
+-- SELECT latest measurement for each id
+
+select distinct on (id) id, volume, "observedAt"
+from geodata_cip.waterconsumptionobserved
+order by id, "observedAt" desc;
 */
