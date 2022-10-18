@@ -48,7 +48,7 @@ func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 		case "waterconsumptionobserved":
 			return handleWaterConsumptionObserved(ctx, e, db)
 		default:
-			log.Info().Msgf("unsupported type %s", n.Type)
+			log.Debug().Msgf("unsupported type %s", entity.Type)
 			return nil
 		}
 	}

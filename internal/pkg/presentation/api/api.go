@@ -93,7 +93,7 @@ func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 		}
 		defer r.Body.Close()
 
-		log.Info().Msg("attempting to process notification")
+		log.Debug().Msg("attempting to process notification")
 
 		n := application.Notification{}
 		err = json.Unmarshal(body, &n)
