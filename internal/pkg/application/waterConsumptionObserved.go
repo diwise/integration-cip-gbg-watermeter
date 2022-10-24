@@ -98,9 +98,9 @@ CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
 /*
 -- VIEW for latest measurement for each id
 
-CREATE VIEW geodata_cip."latestWaterConsumptionObserved"
+CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
  AS select distinct on ("id") "id", "waterConsumption", "unitCode", "source", "location", "observedAt"
-from geodata_cip.waterconsumptionobserved
+from geodata_vattenmatare.waterconsumptionobserved
 order by id, "observedAt" desc;
 
 ALTER TABLE geodata_cip."latestWaterConsumptionObserved"
