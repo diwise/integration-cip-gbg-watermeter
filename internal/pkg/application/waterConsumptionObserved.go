@@ -36,6 +36,7 @@ type point struct {
 }
 
 var pgConnUrl string = ""
+var source string = ""
 
 type StoreFunc func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error
 
@@ -63,8 +64,23 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 		log.Error().Err(err).Msg("failed to unmarshal notification entity into waterConsumptionObserved")
 	}
 
+	log.Debug().Msgf("handle %s", wco.Id)
+	
+	var x, y float64 = 0.0, 0.0
+	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
+		x = wco.Location.Value.Coordinates[0]
+		y = wco.Location.Value.Coordinates[1]
+	}
+
+	if source == "" {
+		source = env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd")
+	}
+
 	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf("INSERT INTO geodata_cip.waterConsumptionObserved (\"id\", \"volume\", \"unitCode\", \"observedAt\") VALUES ('%s', '%0.1f', '%s', '%s') ON CONFLICT DO NOTHING;", wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt)
+		insert := fmt.Sprintf(`INSERT INTO geodata_vattenmatare.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source") VALUES ('%s', '%0.1f', '%s', '%s', ST_MakePoint(%0.1f,%0.1f), '%s') ON CONFLICT DO NOTHING;`, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, source)
+
+		log.Debug().Msg(insert)
+
 		_, err := tx.Exec(ctx, insert)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to insert or update data in database")
@@ -79,34 +95,26 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 /*
 -- TABLE
 
-CREATE TABLE geodata_cip.waterConsumptionObserved
+CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
 (
-	"id" text COLLATE pg_catalog."default" NOT NULL,
-	"volume" numeric,
-	"unitCode" text COLLATE pg_catalog."default",
-	"observedAt" timestamp,
-	"geom" geometry(Geometry,3007),
-	CONSTRAINT pkey PRIMARY KEY ("id", "observedAt")
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "waterConsumption" numeric,
+    "unitCode" text COLLATE pg_catalog."default",
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
 )
 */
 
 /*
 -- VIEW for latest measurement for each id
 
-CREATE VIEW geodata_cip."latestWaterConsumptionObserved"
- AS
-select distinct on (id) id, volume, "observedAt"
-from geodata_cip.waterconsumptionobserved
+CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
+ AS select distinct on ("id") "id", "waterConsumption", "unitCode", "source", "location", "observedAt"
+from geodata_vattenmatare.waterconsumptionobserved
 order by id, "observedAt" desc;
 
-ALTER TABLE geodata_cip."latestWaterConsumptionObserved"
+ALTER TABLE geodata_vattenmatare."latestWaterConsumptionObserved"
     OWNER TO postgres;
-*/
-
-/*
--- SELECT latest measurement for each id
-
-select distinct on (id) id, volume, "observedAt"
-from geodata_cip.waterconsumptionobserved
-order by id, "observedAt" desc;
 */
