@@ -65,7 +65,7 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 	}
 
 	log.Debug().Msgf("handle %s", wco.Id)
-	
+
 	var x, y float64 = 0.0, 0.0
 	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
 		x = wco.Location.Value.Coordinates[0]
@@ -95,6 +95,8 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 /*
 -- TABLE
 
+CREATE SCHEMA geodata_vattenmatare;
+
 CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
 (
     "id" text COLLATE pg_catalog."default" NOT NULL,
@@ -104,11 +106,7 @@ CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
     "source" text,
     "location" geometry(Geometry, 4326),
     CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
-)
-*/
-
-/*
--- VIEW for latest measurement for each id
+);
 
 CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
  AS select distinct on ("id") "id", "waterConsumption", "unitCode", "source", "location", "observedAt"
