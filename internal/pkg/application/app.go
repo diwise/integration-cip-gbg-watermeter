@@ -36,6 +36,8 @@ func NewApp() App {
 func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 	log := logging.GetFromContext(ctx)
 
+	log.Debug().Msgf("notification received with %d entities", len(n.Entities))
+
 	for i, e := range n.Entities {
 		entity := Entity{}
 		err := json.Unmarshal(e, &entity)

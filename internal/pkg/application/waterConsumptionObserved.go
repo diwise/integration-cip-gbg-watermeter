@@ -36,6 +36,7 @@ type point struct {
 }
 
 var pgConnUrl string = ""
+var source string = ""
 
 type StoreFunc func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error
 
@@ -63,11 +64,22 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 		log.Error().Err(err).Msg("failed to unmarshal notification entity into waterConsumptionObserved")
 	}
 
+	log.Debug().Msgf("handle %s", wco.Id)
+	
+	var x, y float64 = 0.0, 0.0
+	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
+		x = wco.Location.Value.Coordinates[0]
+		y = wco.Location.Value.Coordinates[1]
+	}
+
+	if source == "" {
+		source = env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd")
+	}
+
 	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf(`INSERT INTO geodata_vattenmatare.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source")
-							   VALUES ('%s', '%0.1f', '%s', '%s', ST_MakePoint(%0.1f,%0.1f), 'Göteborgs Stads kretslopp och vattennämnd')
-							   ON CONFLICT DO NOTHING;
-		`, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, wco.Location.Value.Coordinates[0], wco.Location.Value.Coordinates[1])
+		insert := fmt.Sprintf(`INSERT INTO geodata_vattenmatare.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source") VALUES ('%s', '%0.1f', '%s', '%s', ST_MakePoint(%0.1f,%0.1f), '%s') ON CONFLICT DO NOTHING;`, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, source)
+
+		log.Debug().Msg(insert)
 
 		_, err := tx.Exec(ctx, insert)
 		if err != nil {
@@ -103,6 +115,6 @@ CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
 from geodata_vattenmatare.waterconsumptionobserved
 order by id, "observedAt" desc;
 
-ALTER TABLE geodata_cip."latestWaterConsumptionObserved"
+ALTER TABLE geodata_vattenmatare."latestWaterConsumptionObserved"
     OWNER TO postgres;
 */

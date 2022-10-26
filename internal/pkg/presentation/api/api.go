@@ -37,12 +37,12 @@ func (a *api) Start(port string) error {
 }
 
 func NewApi(logger zerolog.Logger, r chi.Router, app application.App) API {
-	a := newAPI(logger, r, app)
+	a := newApi(logger, r, app)
 
 	return a
 }
 
-func newAPI(logger zerolog.Logger, r chi.Router, app application.App) *api {
+func newApi(logger zerolog.Logger, r chi.Router, app application.App) *api {
 	a := &api{
 		log: logger,
 		r:   r,
