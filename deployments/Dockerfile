@@ -10,7 +10,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go test -v ./...
 
 WORKDIR /app/cmd/integration-cip-gbg-watermeter
 
