@@ -77,7 +77,7 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 	}
 
 	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf(`INSERT INTO geodata_vattenmatare.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source") VALUES ('%s', '%0.1f', '%s', '%s', ST_MakePoint(%0.1f,%0.1f), '%s') ON CONFLICT DO NOTHING;`, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, source)
+		insert := fmt.Sprintf(`INSERT INTO geodata_vattenmatare.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, source)
 
 		log.Debug().Msg(insert)
 
@@ -105,6 +105,7 @@ CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
     "observedAt" timestamp,
     "source" text,
     "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
     CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
 );
 
