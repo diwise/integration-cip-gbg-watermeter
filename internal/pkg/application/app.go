@@ -49,6 +49,10 @@ func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 		switch strings.ToLower(entity.Type) {
 		case "waterconsumptionobserved":
 			return handleWaterConsumptionObserved(ctx, e, db)
+		case "indoorenvironmentobserved":
+			return handleIndoorEnvironmentObserved(ctx, e, db)
+		case "weatherobserved":
+			return handleWeatherObserved(ctx, e, db)
 		default:
 			log.Debug().Msgf("unsupported type %s", entity.Type)
 			return nil
