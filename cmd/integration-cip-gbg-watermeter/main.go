@@ -7,6 +7,8 @@ import (
 	"github.com/diwise/service-chassis/pkg/infrastructure/env"
 	"github.com/diwise/service-chassis/pkg/infrastructure/o11y"
 	"github.com/diwise/service-chassis/pkg/infrastructure/o11y/metrics"
+	"github.com/go-chi/chi/v5/middleware"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/diwise/integration-cip-gbg-watermeter/internal/pkg/application"
@@ -24,6 +26,12 @@ func main() {
 
 	app := application.NewApp()
 	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+
 	api := api.NewApi(logger, router, app)
 
 	metrics.AddHandlers(router)
