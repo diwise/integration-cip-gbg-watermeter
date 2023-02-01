@@ -100,7 +100,7 @@ func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 		if err != nil {
 			log.Error().Err(err).Msg("failed to unmarshal notification")
 
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 
 			return
