@@ -13,9 +13,9 @@ import (
 //go:generate moq -rm -out database_mock.go . Storage
 
 type Storage interface {
-	StoreWaterConsumptionObserved(ctx context.Context, w waterConsumptionObserved) error
-	StoreWeatherObserved(ctx context.Context, w weatherObserved) error
-	StoreIndoorEnvironmentObserved(ctx context.Context, i indoorEnvironmentObserved) error
+	StoreWaterConsumptionObserved(ctx context.Context, w WaterConsumptionObserved) error
+	StoreWeatherObserved(ctx context.Context, w WeatherObserved) error
+	StoreIndoorEnvironmentObserved(ctx context.Context, i IndoorEnvironmentObserved) error
 }
 
 type storage struct {
@@ -55,7 +55,7 @@ func NewStorage() (Storage, error) {
 	return s, nil
 }
 
-func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco waterConsumptionObserved) error {
+func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco WaterConsumptionObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
 		x = wco.Location.Value.Coordinates[0]
@@ -67,7 +67,7 @@ func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco waterCo
 	return s.exec(ctx, sql)
 }
 
-func (s *storage) StoreWeatherObserved(ctx context.Context, wo weatherObserved) error {
+func (s *storage) StoreWeatherObserved(ctx context.Context, wo WeatherObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if wo.Location.Value.Coordinates != nil && len(wo.Location.Value.Coordinates) > 1 {
 		x = wo.Location.Value.Coordinates[0]
@@ -85,7 +85,7 @@ func (s *storage) StoreWeatherObserved(ctx context.Context, wo weatherObserved) 
 	return s.exec(ctx, sql)
 }
 
-func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo indoorEnvironmentObserved) error {
+func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo IndoorEnvironmentObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if ieo.Location.Value.Coordinates != nil && len(ieo.Location.Value.Coordinates) > 1 {
 		x = ieo.Location.Value.Coordinates[0]
@@ -124,3 +124,74 @@ func (s *storage) exec(ctx context.Context, sql string) error {
 
 	return nil
 }
+
+
+/*
+-- TABLE
+
+CREATE SCHEMA geodata_vattenmatare;
+
+CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "waterConsumption" numeric,
+    "unitCode" text COLLATE pg_catalog."default",
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
+ AS select distinct on ("id") "id", "waterConsumption", "unitCode", "source", "location", "observedAt"
+from geodata_vattenmatare.waterconsumptionobserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestWaterConsumptionObserved"
+    OWNER TO postgres;
+
+
+
+CREATE TABLE geodata_vattenmatare.indoorEnvironmentObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "temperature" numeric,
+	"humidity" numeric,
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestIndoorEnvironmentObserved"
+ AS select distinct on ("id") "id", "temperature", "humidity", "source", "location", "observedAt"
+from geodata_vattenmatare.indoorEnvironmentObserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestIndoorEnvironmentObserved"
+    OWNER TO postgres;
+
+
+
+CREATE TABLE geodata_vattenmatare.weatherObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "temperature" numeric,
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestWeatherObserved"
+ AS select distinct on ("id") "id", "temperature", "source", "location", "observedAt"
+from geodata_vattenmatare.weatherObserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestWeatherObserved"
+    OWNER TO postgres;
+
+*/

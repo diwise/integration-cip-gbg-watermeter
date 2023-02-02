@@ -18,18 +18,6 @@ type app struct {
 	storage Storage
 }
 
-type Entity struct {
-	Id   string `json:"id"`
-	Type string `json:"type"`
-}
-
-type Notification struct {
-	Entity
-	SubscriptionId string            `json:"subscriptionId"`
-	NotifiedAt     string            `json:"notifiedAt"`
-	Entities       []json.RawMessage `json:"data"`
-}
-
 func New(s Storage) App {
 	return &app{
 		storage: s,

@@ -18,13 +18,13 @@ var _ Storage = &StorageMock{}
 //
 //		// make and configure a mocked Storage
 //		mockedStorage := &StorageMock{
-//			StoreIndoorEnvironmentObservedFunc: func(ctx context.Context, i indoorEnvironmentObserved) error {
+//			StoreIndoorEnvironmentObservedFunc: func(ctx context.Context, i IndoorEnvironmentObserved) error {
 //				panic("mock out the StoreIndoorEnvironmentObserved method")
 //			},
-//			StoreWaterConsumptionObservedFunc: func(ctx context.Context, w waterConsumptionObserved) error {
+//			StoreWaterConsumptionObservedFunc: func(ctx context.Context, w WaterConsumptionObserved) error {
 //				panic("mock out the StoreWaterConsumptionObserved method")
 //			},
-//			StoreWeatherObservedFunc: func(ctx context.Context, w weatherObserved) error {
+//			StoreWeatherObservedFunc: func(ctx context.Context, w WeatherObserved) error {
 //				panic("mock out the StoreWeatherObserved method")
 //			},
 //		}
@@ -35,13 +35,13 @@ var _ Storage = &StorageMock{}
 //	}
 type StorageMock struct {
 	// StoreIndoorEnvironmentObservedFunc mocks the StoreIndoorEnvironmentObserved method.
-	StoreIndoorEnvironmentObservedFunc func(ctx context.Context, i indoorEnvironmentObserved) error
+	StoreIndoorEnvironmentObservedFunc func(ctx context.Context, i IndoorEnvironmentObserved) error
 
 	// StoreWaterConsumptionObservedFunc mocks the StoreWaterConsumptionObserved method.
-	StoreWaterConsumptionObservedFunc func(ctx context.Context, w waterConsumptionObserved) error
+	StoreWaterConsumptionObservedFunc func(ctx context.Context, w WaterConsumptionObserved) error
 
 	// StoreWeatherObservedFunc mocks the StoreWeatherObserved method.
-	StoreWeatherObservedFunc func(ctx context.Context, w weatherObserved) error
+	StoreWeatherObservedFunc func(ctx context.Context, w WeatherObserved) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -50,21 +50,21 @@ type StorageMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// I is the i argument value.
-			I indoorEnvironmentObserved
+			I IndoorEnvironmentObserved
 		}
 		// StoreWaterConsumptionObserved holds details about calls to the StoreWaterConsumptionObserved method.
 		StoreWaterConsumptionObserved []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// W is the w argument value.
-			W waterConsumptionObserved
+			W WaterConsumptionObserved
 		}
 		// StoreWeatherObserved holds details about calls to the StoreWeatherObserved method.
 		StoreWeatherObserved []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// W is the w argument value.
-			W weatherObserved
+			W WeatherObserved
 		}
 	}
 	lockStoreIndoorEnvironmentObserved sync.RWMutex
@@ -73,13 +73,13 @@ type StorageMock struct {
 }
 
 // StoreIndoorEnvironmentObserved calls StoreIndoorEnvironmentObservedFunc.
-func (mock *StorageMock) StoreIndoorEnvironmentObserved(ctx context.Context, i indoorEnvironmentObserved) error {
+func (mock *StorageMock) StoreIndoorEnvironmentObserved(ctx context.Context, i IndoorEnvironmentObserved) error {
 	if mock.StoreIndoorEnvironmentObservedFunc == nil {
 		panic("StorageMock.StoreIndoorEnvironmentObservedFunc: method is nil but Storage.StoreIndoorEnvironmentObserved was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		I   indoorEnvironmentObserved
+		I   IndoorEnvironmentObserved
 	}{
 		Ctx: ctx,
 		I:   i,
@@ -96,11 +96,11 @@ func (mock *StorageMock) StoreIndoorEnvironmentObserved(ctx context.Context, i i
 //	len(mockedStorage.StoreIndoorEnvironmentObservedCalls())
 func (mock *StorageMock) StoreIndoorEnvironmentObservedCalls() []struct {
 	Ctx context.Context
-	I   indoorEnvironmentObserved
+	I   IndoorEnvironmentObserved
 } {
 	var calls []struct {
 		Ctx context.Context
-		I   indoorEnvironmentObserved
+		I   IndoorEnvironmentObserved
 	}
 	mock.lockStoreIndoorEnvironmentObserved.RLock()
 	calls = mock.calls.StoreIndoorEnvironmentObserved
@@ -109,13 +109,13 @@ func (mock *StorageMock) StoreIndoorEnvironmentObservedCalls() []struct {
 }
 
 // StoreWaterConsumptionObserved calls StoreWaterConsumptionObservedFunc.
-func (mock *StorageMock) StoreWaterConsumptionObserved(ctx context.Context, w waterConsumptionObserved) error {
+func (mock *StorageMock) StoreWaterConsumptionObserved(ctx context.Context, w WaterConsumptionObserved) error {
 	if mock.StoreWaterConsumptionObservedFunc == nil {
 		panic("StorageMock.StoreWaterConsumptionObservedFunc: method is nil but Storage.StoreWaterConsumptionObserved was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		W   waterConsumptionObserved
+		W   WaterConsumptionObserved
 	}{
 		Ctx: ctx,
 		W:   w,
@@ -132,11 +132,11 @@ func (mock *StorageMock) StoreWaterConsumptionObserved(ctx context.Context, w wa
 //	len(mockedStorage.StoreWaterConsumptionObservedCalls())
 func (mock *StorageMock) StoreWaterConsumptionObservedCalls() []struct {
 	Ctx context.Context
-	W   waterConsumptionObserved
+	W   WaterConsumptionObserved
 } {
 	var calls []struct {
 		Ctx context.Context
-		W   waterConsumptionObserved
+		W   WaterConsumptionObserved
 	}
 	mock.lockStoreWaterConsumptionObserved.RLock()
 	calls = mock.calls.StoreWaterConsumptionObserved
@@ -145,13 +145,13 @@ func (mock *StorageMock) StoreWaterConsumptionObservedCalls() []struct {
 }
 
 // StoreWeatherObserved calls StoreWeatherObservedFunc.
-func (mock *StorageMock) StoreWeatherObserved(ctx context.Context, w weatherObserved) error {
+func (mock *StorageMock) StoreWeatherObserved(ctx context.Context, w WeatherObserved) error {
 	if mock.StoreWeatherObservedFunc == nil {
 		panic("StorageMock.StoreWeatherObservedFunc: method is nil but Storage.StoreWeatherObserved was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		W   weatherObserved
+		W   WeatherObserved
 	}{
 		Ctx: ctx,
 		W:   w,
@@ -168,11 +168,11 @@ func (mock *StorageMock) StoreWeatherObserved(ctx context.Context, w weatherObse
 //	len(mockedStorage.StoreWeatherObservedCalls())
 func (mock *StorageMock) StoreWeatherObservedCalls() []struct {
 	Ctx context.Context
-	W   weatherObserved
+	W   WeatherObserved
 } {
 	var calls []struct {
 		Ctx context.Context
-		W   weatherObserved
+		W   WeatherObserved
 	}
 	mock.lockStoreWeatherObserved.RLock()
 	calls = mock.calls.StoreWeatherObserved

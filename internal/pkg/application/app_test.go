@@ -46,13 +46,13 @@ func setupTest(t *testing.T) (*is.I, app, Storage) {
 	is := is.New(t)
 
 	s := &StorageMock{
-		StoreIndoorEnvironmentObservedFunc: func(ctx context.Context, i indoorEnvironmentObserved) error {
+		StoreIndoorEnvironmentObservedFunc: func(ctx context.Context, i IndoorEnvironmentObserved) error {
 			return nil
 		},
-		StoreWaterConsumptionObservedFunc: func(ctx context.Context, w waterConsumptionObserved) error {
+		StoreWaterConsumptionObservedFunc: func(ctx context.Context, w WaterConsumptionObserved) error {
 			return nil
 		},
-		StoreWeatherObservedFunc: func(ctx context.Context, w weatherObserved) error {
+		StoreWeatherObservedFunc: func(ctx context.Context, w WeatherObserved) error {
 			return nil
 		},
 	}
