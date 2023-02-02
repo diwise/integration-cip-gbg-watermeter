@@ -24,7 +24,11 @@ func main() {
 
 	port := env.GetVariableOrDefault(logger, "SERVICE_PORT", "8080")
 
-	app := application.NewApp()
+	storage, err := application.NewStorage()
+	if err != nil {
+		logger.Fatal().Msg(err.Error())
+	}
+	app := application.New(storage)
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -32,7 +36,7 @@ func main() {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
-	api := api.NewApi(logger, router, app)
+	api := api.New(logger, router, app)
 
 	metrics.AddHandlers(router)
 

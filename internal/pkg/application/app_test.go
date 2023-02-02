@@ -5,43 +5,29 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/matryer/is"
-	"github.com/rs/zerolog"
 )
 
 func TestWaterConsumptionObserved(t *testing.T) {
-	is, _ := setupTest(t)
+	is, a, _ := setupTest(t)
 
-	storeFunc := func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error {
-		return nil
-	}
-
-	err := handleWaterConsumptionObserved(context.Background(), createNotification().Entities[0], storeFunc)
+	err := a.handleWaterConsumptionObserved(context.Background(), createNotification().Entities[0])
 
 	is.NoErr(err)
 }
 
 func TestIndoorEnvironmentObserved(t *testing.T) {
-	is, _ := setupTest(t)
+	is, a, _ := setupTest(t)
 
-	storeFunc := func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error {
-		return nil
-	}
-
-	err := handleIndoorEnvironmentObserved(context.Background(), createNotification().Entities[1], storeFunc)
+	err := a.handleIndoorEnvironmentObserved(context.Background(), createNotification().Entities[1])
 
 	is.NoErr(err)
 }
 
 func TestWeatherObserved(t *testing.T) {
-	is, _ := setupTest(t)
+	is, a, _ := setupTest(t)
 
-	storeFunc := func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error {
-		return nil
-	}
-
-	err := handleWeatherObserved(context.Background(), createNotification().Entities[2], storeFunc)
+	err := a.handleWeatherObserved(context.Background(), createNotification().Entities[2])
 
 	is.NoErr(err)
 }
@@ -56,11 +42,25 @@ func createNotification() Notification {
 	return n
 }
 
-func setupTest(t *testing.T) (*is.I, App) {
+func setupTest(t *testing.T) (*is.I, app, Storage) {
 	is := is.New(t)
-	app := NewApp()
 
-	return is, app
+	s := &StorageMock{
+		StoreIndoorEnvironmentObservedFunc: func(ctx context.Context, i indoorEnvironmentObserved) error {
+			return nil
+		},
+		StoreWaterConsumptionObservedFunc: func(ctx context.Context, w waterConsumptionObserved) error {
+			return nil
+		},
+		StoreWeatherObservedFunc: func(ctx context.Context, w weatherObserved) error {
+			return nil
+		},
+	}
+	a := app{
+		storage: s,
+	}
+
+	return is, a, s
 }
 
 const notifications string = `
