@@ -15,6 +15,7 @@ type App interface {
 }
 
 type app struct {
+	storage Storage
 }
 
 type Entity struct {
@@ -29,8 +30,10 @@ type Notification struct {
 	Entities       []json.RawMessage `json:"data"`
 }
 
-func NewApp() App {
-	return &app{}
+func New(s Storage) App {
+	return &app{
+		storage: s,
+	}
 }
 
 func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
@@ -48,11 +51,11 @@ func (a *app) NotificationReceived(ctx context.Context, n Notification) error {
 
 		switch strings.ToLower(entity.Type) {
 		case "waterconsumptionobserved":
-			return handleWaterConsumptionObserved(ctx, e, db)
+			return a.handleWaterConsumptionObserved(ctx, e)
 		case "indoorenvironmentobserved":
-			return handleIndoorEnvironmentObserved(ctx, e, db)
+			return a.handleIndoorEnvironmentObserved(ctx, e)
 		case "weatherobserved":
-			return handleWeatherObserved(ctx, e, db)
+			return a.handleWeatherObserved(ctx, e)
 		default:
 			log.Debug().Msgf("unsupported type %s", entity.Type)
 			return nil

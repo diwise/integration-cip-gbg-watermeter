@@ -36,7 +36,7 @@ func (a *api) Start(port string) error {
 	return http.ListenAndServe(":"+port, a.r)
 }
 
-func NewApi(logger zerolog.Logger, r chi.Router, app application.App) API {
+func New(logger zerolog.Logger, r chi.Router, app application.App) API {
 	a := newApi(logger, r, app)
 
 	return a
@@ -87,7 +87,7 @@ func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to read body")
+			log.Error().Err(err).Msg("read body")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -98,7 +98,7 @@ func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 		n := application.Notification{}
 		err = json.Unmarshal(body, &n)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to unmarshal notification")
+			log.Error().Err(err).Msg("unmarshal notification")
 
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
@@ -108,7 +108,7 @@ func notifyHandlerFunc(a application.App, log zerolog.Logger) http.HandlerFunc {
 
 		err = a.NotificationReceived(ctx, n)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to handle notification")
+			log.Error().Err(err).Msg("handle notification")
 
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))

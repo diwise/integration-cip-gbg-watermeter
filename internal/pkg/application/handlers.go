@@ -3,41 +3,9 @@ package application
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
-	"github.com/diwise/service-chassis/pkg/infrastructure/env"
 	"github.com/diwise/service-chassis/pkg/infrastructure/o11y/logging"
-	"github.com/jackc/pgx/v4"
-	"github.com/rs/zerolog"
 )
-
-var pgConnUrl string
-var source string
-var schema string
-
-func init() {
-	pgConnUrl = ""
-	source = env.GetVariableOrDefault(zerolog.Logger{}, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd")
-	schema = env.GetVariableOrDefault(zerolog.Logger{}, "DB_SCHEMA", "geodata_vattenmatare")
-}
-
-type StoreFunc func(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error
-
-func db(ctx context.Context, log zerolog.Logger, exec func(tx pgx.Tx) error) error {
-	if pgConnUrl == "" {
-		pgConnUrl = env.GetVariableOrDie(log, "PG_CONNECTION_URL", "url to postgres database, i.e. postgres://username:password@hostname:5433/database_name")
-	}
-
-	conn, err := pgx.Connect(ctx, pgConnUrl)
-	if err != nil {
-		log.Fatal().Err(err).Msg("unable to connect to database")
-	}
-	defer conn.Close(ctx)
-
-	err = conn.BeginFunc(ctx, exec)
-
-	return err
-}
 
 type property struct {
 	Value      float64 `json:"value"`
@@ -79,7 +47,7 @@ type weatherObserved struct {
 	Location    point    `json:"location"`
 }
 
-func handleIndoorEnvironmentObserved(ctx context.Context, j json.RawMessage, store StoreFunc) error {
+func (a app) handleIndoorEnvironmentObserved(ctx context.Context, j json.RawMessage) error {
 	log := logging.GetFromContext(ctx)
 	ieo := indoorEnvironmentObserved{}
 	err := json.Unmarshal(j, &ieo)
@@ -89,38 +57,10 @@ func handleIndoorEnvironmentObserved(ctx context.Context, j json.RawMessage, sto
 
 	log.Debug().Msgf("handle %s", ieo.Id)
 
-	var x, y float64 = 0.0, 0.0
-	if ieo.Location.Value.Coordinates != nil && len(ieo.Location.Value.Coordinates) > 1 {
-		x = ieo.Location.Value.Coordinates[0]
-		y = ieo.Location.Value.Coordinates[1]
-	}
-
-	t := ieo.Temperature.Value
-	h := ieo.Humidity.Value
-	observedAt := ""
-	if ieo.Temperature.ObservedAt != "" {
-		observedAt = ieo.Temperature.ObservedAt
-	} else if ieo.Humidity.ObservedAt != "" {
-		observedAt = ieo.Humidity.ObservedAt
-	}
-
-	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf(`INSERT INTO %s.indoorEnvironmentObserved ("id", "temperature", "humidity", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, schema, ieo.Id, t, h, observedAt, x, y, source)
-
-		log.Debug().Msg(insert)
-
-		_, err := tx.Exec(ctx, insert)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to insert or update data in database")
-		}
-
-		return err
-	})
-
-	return err
+	return a.storage.StoreIndoorEnvironmentObserved(ctx, ieo)
 }
 
-func handleWeatherObserved(ctx context.Context, j json.RawMessage, store StoreFunc) error {
+func (a app) handleWeatherObserved(ctx context.Context, j json.RawMessage) error {
 	log := logging.GetFromContext(ctx)
 	wo := weatherObserved{}
 	err := json.Unmarshal(j, &wo)
@@ -130,35 +70,10 @@ func handleWeatherObserved(ctx context.Context, j json.RawMessage, store StoreFu
 
 	log.Debug().Msgf("handle %s", wo.Id)
 
-	var x, y float64 = 0.0, 0.0
-	if wo.Location.Value.Coordinates != nil && len(wo.Location.Value.Coordinates) > 1 {
-		x = wo.Location.Value.Coordinates[0]
-		y = wo.Location.Value.Coordinates[1]
-	}
-
-	t := wo.Temperature.Value
-	observedAt := ""
-	if wo.Temperature.ObservedAt != "" {
-		observedAt = wo.Temperature.ObservedAt
-	} 
-
-	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf(`INSERT INTO %s.weatherObserved ("id", "temperature", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, schema, wo.Id, t, observedAt, x, y, source)
-
-		log.Debug().Msg(insert)
-
-		_, err := tx.Exec(ctx, insert)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to insert or update data in database")
-		}
-
-		return err
-	})
-
-	return err
+	return a.storage.StoreWeatherObserved(ctx, wo)
 }
 
-func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, store StoreFunc) error {
+func (a app) handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage) error {
 	log := logging.GetFromContext(ctx)
 	wco := waterConsumptionObserved{}
 	err := json.Unmarshal(j, &wco)
@@ -168,26 +83,7 @@ func handleWaterConsumptionObserved(ctx context.Context, j json.RawMessage, stor
 
 	log.Debug().Msgf("handle %s", wco.Id)
 
-	var x, y float64 = 0.0, 0.0
-	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
-		x = wco.Location.Value.Coordinates[0]
-		y = wco.Location.Value.Coordinates[1]
-	}
-
-	err = store(ctx, log, func(tx pgx.Tx) error {
-		insert := fmt.Sprintf(`INSERT INTO %s.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, schema, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, source)
-
-		log.Debug().Msg(insert)
-
-		_, err := tx.Exec(ctx, insert)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to insert or update data in database")
-		}
-
-		return err
-	})
-
-	return err
+	return a.storage.StoreWaterConsumptionObserved(ctx, wco)
 }
 
 /*
@@ -256,6 +152,6 @@ from geodata_vattenmatare.weatherObserved
 order by id, "observedAt" desc;
 
 ALTER TABLE geodata_vattenmatare."latestWeatherObserved"
-    OWNER TO postgres;	
+    OWNER TO postgres;
 
 */
