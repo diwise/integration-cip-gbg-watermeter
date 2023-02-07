@@ -6,16 +6,16 @@ import (
 
 	"github.com/diwise/service-chassis/pkg/infrastructure/env"
 	"github.com/diwise/service-chassis/pkg/infrastructure/o11y/logging"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
 
 //go:generate moq -rm -out database_mock.go . Storage
 
 type Storage interface {
-	StoreWaterConsumptionObserved(ctx context.Context, w waterConsumptionObserved) error
-	StoreWeatherObserved(ctx context.Context, w weatherObserved) error
-	StoreIndoorEnvironmentObserved(ctx context.Context, i indoorEnvironmentObserved) error
+	StoreWaterConsumptionObserved(ctx context.Context, w WaterConsumptionObserved) error
+	StoreWeatherObserved(ctx context.Context, w WeatherObserved) error
+	StoreIndoorEnvironmentObserved(ctx context.Context, i IndoorEnvironmentObserved) error
 }
 
 type storage struct {
@@ -27,47 +27,41 @@ type storage struct {
 func NewStorage() (Storage, error) {
 	log := zerolog.Logger{}
 
-	s := &storage{}
-
-	s.source = env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd")
-	s.schema = env.GetVariableOrDefault(log, "DB_SCHEMA", "geodata_vattenmatare")
-
 	var pgUser = env.GetVariableOrDefault(log, "PG_USER", "")
 	var pgPassword = env.GetVariableOrDefault(log, "PG_PASSWORD", "")
 	var pgHostname = env.GetVariableOrDefault(log, "PG_HOSTNAME", "")
 	var pgPort = env.GetVariableOrDefault(log, "PG_PORT", "5432")
 	var pgDatabaseName = env.GetVariableOrDefault(log, "PG_DATABASE", "")
 
-	s.connUrl = fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pgUser, pgPassword, pgHostname, pgPort, pgDatabaseName)
-
-	_, err := pgx.ParseConfig(s.connUrl)
-	if err != nil {
-		return s, err
+	s := &storage{
+		source:  env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd"),
+		schema:  env.GetVariableOrDefault(log, "DB_SCHEMA", "geodata_vattenmatare"),
+		connUrl: fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pgUser, pgPassword, pgHostname, pgPort, pgDatabaseName),
 	}
 
 	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, s.connUrl)
+	dbpool, err := pgxpool.New(ctx, s.connUrl)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close(ctx)
+	defer dbpool.Close()
 
 	return s, nil
 }
 
-func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco waterConsumptionObserved) error {
+func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco WaterConsumptionObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if wco.Location.Value.Coordinates != nil && len(wco.Location.Value.Coordinates) > 1 {
 		x = wco.Location.Value.Coordinates[0]
 		y = wco.Location.Value.Coordinates[1]
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, $4, ST_MakePoint($5,$6), $7, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, s.source)
 }
 
-func (s *storage) StoreWeatherObserved(ctx context.Context, wo weatherObserved) error {
+func (s *storage) StoreWeatherObserved(ctx context.Context, wo WeatherObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if wo.Location.Value.Coordinates != nil && len(wo.Location.Value.Coordinates) > 1 {
 		x = wo.Location.Value.Coordinates[0]
@@ -80,12 +74,12 @@ func (s *storage) StoreWeatherObserved(ctx context.Context, wo weatherObserved) 
 		observedAt = wo.Temperature.ObservedAt
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.weatherObserved ("id", "temperature", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, wo.Id, t, observedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.weatherObserved ("id", "temperature", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, ST_MakePoint($4,$5), $6, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, wo.Id, t, observedAt, x, y, s.source)
 }
 
-func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo indoorEnvironmentObserved) error {
+func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo IndoorEnvironmentObserved) error {
 	var x, y float64 = 0.0, 0.0
 	if ieo.Location.Value.Coordinates != nil && len(ieo.Location.Value.Coordinates) > 1 {
 		x = ieo.Location.Value.Coordinates[0]
@@ -101,26 +95,96 @@ func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo indoor
 		observedAt = ieo.Humidity.ObservedAt
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.indoorEnvironmentObserved ("id", "temperature", "humidity", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, ieo.Id, t, h, observedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.indoorEnvironmentObserved ("id", "temperature", "humidity", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, $4, ST_MakePoint($5,$6), $7, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, ieo.Id, t, h, observedAt, x, y, s.source)
 }
 
-func (s *storage) exec(ctx context.Context, sql string) error {
+func (s *storage) exec(ctx context.Context, sql string, arguments ...any) error {
 	log := logging.GetFromContext(ctx)
 
 	log.Debug().Msg(sql)
 
-	conn, err := pgx.Connect(ctx, s.connUrl)
+	dbpool, err := pgxpool.New(ctx, s.connUrl)
 	if err != nil {
 		return err
 	}
-	defer conn.Close(ctx)
+	defer dbpool.Close()
 
-	_, err = conn.Exec(ctx, sql)
+	_, err = dbpool.Exec(ctx, sql, arguments...)
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
+
+/*
+-- TABLE
+
+CREATE SCHEMA geodata_vattenmatare;
+
+CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "waterConsumption" numeric,
+    "unitCode" text COLLATE pg_catalog."default",
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey_wco PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
+ AS select distinct on ("id") "id", "waterConsumption", "unitCode", "source", "location", "observedAt"
+from geodata_vattenmatare.waterconsumptionobserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestWaterConsumptionObserved"
+    OWNER TO postgres;
+
+
+
+CREATE TABLE geodata_vattenmatare.indoorEnvironmentObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "temperature" numeric,
+	"humidity" numeric,
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey_ieo PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestIndoorEnvironmentObserved"
+ AS select distinct on ("id") "id", "temperature", "humidity", "source", "location", "observedAt"
+from geodata_vattenmatare.indoorEnvironmentObserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestIndoorEnvironmentObserved"
+    OWNER TO postgres;
+
+
+
+CREATE TABLE geodata_vattenmatare.weatherObserved
+(
+    "id" text COLLATE pg_catalog."default" NOT NULL,
+    "temperature" numeric,
+    "observedAt" timestamp,
+    "source" text,
+    "location" geometry(Geometry, 4326),
+	"createdAt" timestamp,
+    CONSTRAINT pkey_wo PRIMARY KEY("id", "observedAt")
+);
+
+CREATE VIEW geodata_vattenmatare."latestWeatherObserved"
+ AS select distinct on ("id") "id", "temperature", "source", "location", "observedAt"
+from geodata_vattenmatare.weatherObserved
+order by id, "observedAt" desc;
+
+ALTER TABLE geodata_vattenmatare."latestWeatherObserved"
+    OWNER TO postgres;
+
+*/
