@@ -6,7 +6,7 @@ import (
 
 	"github.com/diwise/service-chassis/pkg/infrastructure/env"
 	"github.com/diwise/service-chassis/pkg/infrastructure/o11y/logging"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
 
@@ -27,30 +27,24 @@ type storage struct {
 func NewStorage() (Storage, error) {
 	log := zerolog.Logger{}
 
-	s := &storage{}
-
-	s.source = env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd")
-	s.schema = env.GetVariableOrDefault(log, "DB_SCHEMA", "geodata_vattenmatare")
-
 	var pgUser = env.GetVariableOrDefault(log, "PG_USER", "")
 	var pgPassword = env.GetVariableOrDefault(log, "PG_PASSWORD", "")
 	var pgHostname = env.GetVariableOrDefault(log, "PG_HOSTNAME", "")
 	var pgPort = env.GetVariableOrDefault(log, "PG_PORT", "5432")
 	var pgDatabaseName = env.GetVariableOrDefault(log, "PG_DATABASE", "")
 
-	s.connUrl = fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pgUser, pgPassword, pgHostname, pgPort, pgDatabaseName)
-
-	_, err := pgx.ParseConfig(s.connUrl)
-	if err != nil {
-		return s, err
+	s := &storage{
+		source:  env.GetVariableOrDefault(log, "WCO_SOURCE", "Göteborgs Stads kretslopp och vattennämnd"),
+		schema:  env.GetVariableOrDefault(log, "DB_SCHEMA", "geodata_vattenmatare"),
+		connUrl: fmt.Sprintf("postgres://%s:%s@%s:%s/%s", pgUser, pgPassword, pgHostname, pgPort, pgDatabaseName),
 	}
 
 	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, s.connUrl)
+	dbpool, err := pgxpool.New(ctx, s.connUrl)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close(ctx)
+	defer dbpool.Close()
 
 	return s, nil
 }
@@ -62,9 +56,9 @@ func (s *storage) StoreWaterConsumptionObserved(ctx context.Context, wco WaterCo
 		y = wco.Location.Value.Coordinates[1]
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.waterConsumptionObserved ("id", "waterConsumption", "unitCode", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, $4, ST_MakePoint($5,$6), $7, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, wco.Id, wco.WaterConsumption.Value, wco.WaterConsumption.UnitCode, wco.WaterConsumption.ObservedAt, x, y, s.source)
 }
 
 func (s *storage) StoreWeatherObserved(ctx context.Context, wo WeatherObserved) error {
@@ -80,9 +74,9 @@ func (s *storage) StoreWeatherObserved(ctx context.Context, wo WeatherObserved) 
 		observedAt = wo.Temperature.ObservedAt
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.weatherObserved ("id", "temperature", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, wo.Id, t, observedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.weatherObserved ("id", "temperature", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, ST_MakePoint($4,$5), $6, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, wo.Id, t, observedAt, x, y, s.source)
 }
 
 func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo IndoorEnvironmentObserved) error {
@@ -101,30 +95,29 @@ func (s *storage) StoreIndoorEnvironmentObserved(ctx context.Context, ieo Indoor
 		observedAt = ieo.Humidity.ObservedAt
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO %s.indoorEnvironmentObserved ("id", "temperature", "humidity", "observedAt", "location", "source", "createdAt") VALUES ('%s', '%0.2f', '%0.2f', '%s', ST_MakePoint(%0.6f,%0.6f), '%s', current_timestamp) ON CONFLICT DO NOTHING;`, s.schema, ieo.Id, t, h, observedAt, x, y, s.source)
+	sql := fmt.Sprintf(`INSERT INTO %s.indoorEnvironmentObserved ("id", "temperature", "humidity", "observedAt", "location", "source", "createdAt") VALUES ($1, $2, $3, $4, ST_MakePoint($5,$6), $7, current_timestamp) ON CONFLICT DO NOTHING;`, s.schema)
 
-	return s.exec(ctx, sql)
+	return s.exec(ctx, sql, ieo.Id, t, h, observedAt, x, y, s.source)
 }
 
-func (s *storage) exec(ctx context.Context, sql string) error {
+func (s *storage) exec(ctx context.Context, sql string, arguments ...any) error {
 	log := logging.GetFromContext(ctx)
 
 	log.Debug().Msg(sql)
 
-	conn, err := pgx.Connect(ctx, s.connUrl)
+	dbpool, err := pgxpool.New(ctx, s.connUrl)
 	if err != nil {
 		return err
 	}
-	defer conn.Close(ctx)
+	defer dbpool.Close()
 
-	_, err = conn.Exec(ctx, sql)
+	_, err = dbpool.Exec(ctx, sql, arguments...)
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
-
 
 /*
 -- TABLE
@@ -140,7 +133,7 @@ CREATE TABLE geodata_vattenmatare.waterConsumptionObserved
     "source" text,
     "location" geometry(Geometry, 4326),
 	"createdAt" timestamp,
-    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+    CONSTRAINT pkey_wco PRIMARY KEY("id", "observedAt")
 );
 
 CREATE VIEW geodata_vattenmatare."latestWaterConsumptionObserved"
@@ -162,7 +155,7 @@ CREATE TABLE geodata_vattenmatare.indoorEnvironmentObserved
     "source" text,
     "location" geometry(Geometry, 4326),
 	"createdAt" timestamp,
-    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+    CONSTRAINT pkey_ieo PRIMARY KEY("id", "observedAt")
 );
 
 CREATE VIEW geodata_vattenmatare."latestIndoorEnvironmentObserved"
@@ -183,7 +176,7 @@ CREATE TABLE geodata_vattenmatare.weatherObserved
     "source" text,
     "location" geometry(Geometry, 4326),
 	"createdAt" timestamp,
-    CONSTRAINT pkey PRIMARY KEY("id", "observedAt")
+    CONSTRAINT pkey_wo PRIMARY KEY("id", "observedAt")
 );
 
 CREATE VIEW geodata_vattenmatare."latestWeatherObserved"
